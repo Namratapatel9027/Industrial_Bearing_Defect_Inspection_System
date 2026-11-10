@@ -23,7 +23,7 @@ The system uses a two-stage object detection architecture:
 
 The system follows a modular architecture integrating industrial image acquisition, computer vision inference, backend services, dashboard visualization, and inspection history management.
 
-![System Architecture](src/1_Industrial Bearing Defect Inspection System Architecture.png)
+![System Architecture](src/1_Industrial_Bearing_Defect_Inspection_System_Architecture.png)
 
 ## Computer Vision Pipeline
 
