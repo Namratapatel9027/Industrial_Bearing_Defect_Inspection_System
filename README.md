@@ -144,6 +144,10 @@ The Streamlit dashboard presented:
 - Final OK/NG status.
 - Inspection timestamps and history.
 
+![NG Bearing](src/ng.png)
+
+![OK Bearing](src/ok.png)
+
 ### Deployment
 Docker was used for application packaging and deployment.
 
