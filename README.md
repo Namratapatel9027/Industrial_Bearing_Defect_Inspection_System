@@ -1,107 +1,213 @@
-# Bearing Defect Inspection System
+# Industrial Bearing Defect Inspection System
 
-> **Documentation-only portfolio repository.** Source code, trained weights, client datasets, credentials, and proprietary implementation details are intentionally excluded.
+> Documentation-only portfolio repository showcasing a two-stage YOLOv8-based computer vision system for industrial bearing surface defect inspection. Proprietary source code, trained model weights, client datasets, and confidential implementation details are excluded.
 
-## Project overview
+## Project Overview
 
-An industrial computer-vision inspection system designed to identify visible defects on manufactured bearings and present an auditable **OK / NG** inspection result to an operator.
+The Industrial Bearing Defect Inspection System is a computer vision-based quality inspection solution designed to identify visible surface defects in manufactured bearings and generate an **OK / NG (Not Good)** inspection result.
 
-The remembered inspection classes are:
+The system uses a two-stage object detection architecture:
+
+1. **Bearing Localization – YOLOv8n:** Detects the bearing in the input camera frame and extracts its Region of Interest (ROI).
+2. **Defect Detection – YOLOv8m:** Inspects the extracted bearing region to identify surface defects.
+3. **Decision Logic:** Applies confidence filtering and duplicate suppression. If one or more qualifying defects are detected, the bearing is classified as NG; otherwise, it is classified as OK.
+
+### Defect Categories
 
 - Scratch
 - Crack
 - Rust
 - Dent
 
-The system uses a two-stage YOLOv8 detection design:
+## System Architecture
 
-1. **Bearing localization — YOLOv8n:** detects the bearing in the full camera frame and defines the region of interest (ROI).
-2. **Defect inspection — YOLOv8m:** analyzes the bearing crop for the four defect classes.
-3. **Decision logic:** after confidence filtering and duplicate suppression, one or more qualifying defects produce **NG**; no qualifying defect produces **OK**.
+The system follows a modular architecture integrating industrial image acquisition, computer vision inference, backend services, dashboard visualization, and inspection history management.
 
-This is a dashboard-based inspection workflow. An automatic PLC rejection mechanism was not part of the remembered project scope.
+![System Architecture](src/1_Industrial Bearing Defect Inspection System Architecture.png)
 
-## High-level architecture
+## Computer Vision Pipeline
 
-![System architecture](diagrams/01_system_architecture.png)
+The inspection process follows a two-stage detection approach.
 
-## Computer-vision pipeline
+![Two Stage CV Pipeline](src/2_two_stage_pipeline.png)
 
-![Two-stage CV pipeline](diagrams/02_two_stage_cv_pipeline.png)
+**Stage 1 – Bearing Detection**
+- Input: Full camera frame.
+- Model: YOLOv8n.
+- Class: Bearing.
+- Output: Bearing bounding box and confidence score.
+- Purpose: Localize the bearing and extract its ROI.
 
-## Data and model development
+**Stage 2 – Defect Detection**
+- Input: Cropped bearing ROI.
+- Model: YOLOv8m.
+- Classes: Scratch, Crack, Rust, Dent.
+- Output: Defect bounding boxes, class labels, and confidence scores.
 
-![Dataset and training lifecycle](diagrams/03_dataset_training_lifecycle.png)
+**Final Inspection Decision**
 
-- Approximately **5,000 original images** were recalled.
-- An approximate **70:20:10** train/validation/test split was used, with images grouped by bearing/session to reduce leakage.
-- Training augmentation increased the training set to approximately **8,000 images**. Augmentation was applied to training data only.
-- QuPath was used for bounding-box annotation.
-- Stage 1 uses a `Bearing` class. Stage 2 uses `Scratch`, `Crack`, `Rust`, and `Dent`.
-- Recalled augmentation operations include rotation, flipping, brightness/contrast changes, blur, and noise. Images were prepared at 640 × 640 for the YOLO workflow.
-
-## Reported results
-
-| Metric | Reported value |
-|---|---:|
-| Accuracy | **93.2%** |
-| Precision | **90.44%** |
-| Recall | **91.1%** |
-
-These figures were supplied from project recollection. The exact evaluation report, metric averaging method, class-wise breakdown, test-set definition, and corresponding mAP values have not yet been recovered. They should not be interpreted as independently audited benchmarks.
-
-## Technology stack
-
-- **Camera / acquisition:** Baumer industrial camera and Camera SDK (exact model and SDK version not recovered)
-- **Computer vision:** Python, OpenCV, Ultralytics YOLOv8
-- **Models:** YOLOv8n for bearing localization; YOLOv8m for defect detection
-- **Backend:** FastAPI
-- **Dashboard:** Streamlit
-- **Packaging / deployment:** Docker
-- **Persistence:** a database was used; exact engine and schema not recovered
-
-## Runtime and deployment flow
-
-![Runtime deployment flow](diagrams/04_runtime_deployment_flow.png)
-
-The original setup used a Baumer camera with its SDK. A separate simulation mode using recorded video is suitable for a public portfolio demonstration. The simulation is a documentation/demo adaptation and should not be described as the original production camera interface.
-
-## Key implementation details recalled
-
-| Area | Recalled detail |
+| Condition | Result |
 |---|---|
-| Camera | Baumer industrial camera |
-| Acquisition interface | Camera SDK |
-| Camera arrangement | Camera positioned above the bearing in a separate test setup |
-| Stage 1 | YOLOv8n, `Bearing` |
-| Stage 2 | YOLOv8m, `Scratch`, `Crack`, `Rust`, `Dent` |
-| Input preparation | 640 × 640 |
-| Training | Approximately 500 epochs; batch size 64 (recollection; verify training logs) |
-| GPU | NVIDIA A100 on an IIT server (recollection; verify) |
-| Confidence threshold | Approximately 0.75 |
-| Data split | 70:20:10, bearing/session-wise |
-| Augmentation | Training set only; approximately 8,000 augmented training images |
-| Backend / UI | FastAPI / Streamlit |
+| One or more accepted defect detections | NG |
+| No accepted defect detections | OK |
+
+The final OK/NG classification is rule-based post-processing, not a separate neural network classifier.
+
+## Dataset Preparation and Model Development
+
+![Dataset and Training Lifecycle](src/03_dataset_training_lifecycle.png)
+
+### Dataset Details
+
+| Parameter | Details |
+|---|---|
+| Original images | Approximately 5,000 |
+| Training split | 70% |
+| Validation split | 20% |
+| Testing split | 10% |
+| Augmented training images | Approximately 8,000 |
+| Annotation tool | QuPath |
+| Image preparation | 640 × 640 |
+| Split strategy | Bearing/session-wise grouping |
+
+### Data Augmentation
+
+The training dataset was expanded using:
+- Rotation
+- Horizontal and vertical flipping
+- Brightness and contrast adjustments
+- Blur
+- Noise
+
+Augmentation was applied to the training partition only. Validation and test data were kept free from random training augmentation.
+
+### Model Training Configuration
+
+| Parameter | Stage 1 | Stage 2 |
+|---|---|---|
+| Architecture | YOLOv8n | YOLOv8m |
+| Task | Bearing localization | Defect detection |
+| Classes | Bearing | Scratch, Crack, Rust, Dent |
+| Input size | 640 × 640 | 640 × 640 |
+| Epochs | Approximately 500 | Approximately 500 |
+| Batch size | 64 | 64 |
+
+**Training environment:** NVIDIA A100 GPU on an IIT server (recalled configuration; pending training-log verification).
+
+## Reported Model Performance
+
+The following metrics were recalled from the project:
+
+| Evaluation Metric | Reported Value |
+|---|---:|
+| Accuracy | 93.2% |
+| Precision | 90.44% |
+| Recall | 91.1% |
+
+**Note:** These are reported project figures, not independently audited benchmarks. The original evaluation report, metric averaging methodology, class-wise breakdown, and test-set definition have not yet been recovered. mAP and FPS values are therefore not reported.
+
+## Technology Stack
+
+| Category | Technologies |
+|---|---|
+| Programming Language | Python |
+| Computer Vision | OpenCV |
+| Object Detection | Ultralytics YOLOv8 |
+| Deep Learning | PyTorch |
+| Camera Acquisition | Baumer Industrial Camera, Camera SDK |
+| Annotation | QuPath |
+| Backend | FastAPI |
+| Dashboard | Streamlit |
 | Deployment | Docker |
-| Output | Dashboard with bearing crop, defect labels/boxes, confidence, timestamp and OK/NG |
-| Automation | No PLC-based automatic rejection confirmed |
+| Data Persistence | Database (exact engine not recovered) |
 
-## Confidentiality boundary
+## Runtime and Deployment Architecture
 
-This repository intentionally describes the project at an architectural and capability level. It does **not** contain:
+![Runtime Deployment Flow](src/04_runtime_deployment_flow.png)
 
-- Source code or internal implementation files
-- Model weights or proprietary training artifacts
-- Client images, videos, annotations, or identifying information
-- Internal camera credentials, network details, or deployment secrets
-- Private API keys, database credentials, or production URLs
+### Image Acquisition
+- Original setup used a Baumer industrial camera.
+- Camera SDK was used for image acquisition.
+- The camera was positioned above the bearing in a separate test setup.
 
-Only publish this README and the approved diagrams/documentation. Confirm that your former employer permits public disclosure of even high-level project details before publishing.
+### Backend and Inference
+- Python and OpenCV handled image processing.
+- YOLOv8 models performed bearing localization and defect detection.
+- FastAPI provided backend integration.
 
-## Documentation
+### Dashboard and Inspection Results
+The Streamlit dashboard presented:
+- Input camera frame.
+- Detected bearing ROI.
+- Defect bounding boxes and labels.
+- Confidence scores.
+- Final OK/NG status.
+- Inspection timestamps and history.
 
-See [`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md) for the detailed end-to-end technical record, parameter register, assumptions, limitations, and interview-safe explanation.
+### Deployment
+Docker was used for application packaging and deployment.
 
-## Parameter verification status
+The original workflow was dashboard-based. Automatic PLC-based rejection or conveyor control was not part of the confirmed project scope.
 
-Some exact values are not available from the project recollection, including the Baumer camera model, lens, exposure/gain, frame rate, SDK version, Ultralytics version, optimizer, learning-rate schedule, early-stopping patience, NMS/duplicate-filter IoU threshold, database engine, API endpoint names, and Docker service topology. These are explicitly marked as **not recovered** in the detailed documentation rather than guessed.
+## Key Technical Highlights
+
+- Two-stage YOLOv8 architecture for localized industrial defect inspection.
+- ROI-based inference to focus defect detection on the bearing surface.
+- Multi-class defect detection covering four surface defect categories.
+- Confidence-based prediction filtering.
+- Duplicate detection suppression.
+- Rule-based OK/NG decision mechanism.
+- Bearing/session-wise dataset splitting to reduce data leakage.
+- FastAPI backend and Streamlit dashboard integration.
+- Docker-based application packaging.
+
+## Challenges and Limitations
+
+Some of the key inspection challenges included:
+
+- Detecting small and subtle surface scratches and dents.
+- Handling reflections and varying surface appearances.
+- Managing class imbalance across defect categories.
+- Reducing false positives caused by surface texture and reflections.
+- Maintaining reliable defect detection under lighting variations.
+
+Potential improvements include controlled illumination, additional difficult-condition samples, per-class recall analysis, confidence calibration, and end-to-end latency measurement.
+
+## Repository Structure
+
+```text
+industrial-bearing-defect-inspection/
+│
+├── README.md
+│
+└── src/
+    ├── 01_system_architecture.png
+    ├── 02_two_stage_cv_pipeline.png
+    ├── 03_dataset_training_lifecycle.png
+    └── 04_runtime_deployment_flow.png
+```
+
+This is a documentation-only repository. It does not contain executable source code, model weights, or client datasets.
+
+## Confidentiality and Disclaimer
+
+This repository is intended for professional portfolio and technical documentation purposes.
+
+The following materials are intentionally excluded:
+- Proprietary source code.
+- Trained model weights.
+- Client images and videos.
+- Internal datasets and annotations.
+- Camera credentials and network configurations.
+- Private API keys and database credentials.
+- Internal production URLs and deployment secrets.
+
+Project details are documented at an architectural and capability level. Public disclosure is subject to the former employer's confidentiality and authorization requirements.
+
+## Author
+
+**Computer Vision / AI-ML Engineer**
+
+Focus Areas: Computer Vision, Object Detection, Industrial Inspection, Deep Learning, Image Processing, and AI Application Deployment.
+
+
